@@ -968,7 +968,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
         //利用enq()将节点添加到同步队列尾部  返回的是前驱节点
         Node p = enq(node);
         int ws = p.waitStatus;
-        //将前驱节点的状态设置为SIGNAL  不成功 阻塞当前线程
+        //将前驱节点的状态设置为SIGNAL  不成功 释放线程
         if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL)) {
             LockSupport.unpark(node.thread);
         }
@@ -1011,6 +1011,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
             }
         } finally {
             if (failed) {
+                //释放失败 修改状态为删除状态
                 node.waitStatus = Node.CANCELLED;
             }
         }
@@ -1034,7 +1035,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
     }
 
     /**
-     *
+     * 获取条件队列的长度
      */
     public final int getWaitQueueLength(ConditionObject condition) {
         if (!owns(condition)) {
@@ -1044,7 +1045,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
     }
 
     /**
-     *
+     * 获取条件队列的线程集合
      */
     public final Collection<Thread> getWaitingThreads(ConditionObject condition) {
         if (!owns(condition)) {
@@ -1340,7 +1341,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
         }
 
         /**
-         *
+         * 带时间期限的等待
          */
         @Override
         public final boolean awaitUntil(Date deadline) throws InterruptedException {

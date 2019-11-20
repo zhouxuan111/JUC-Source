@@ -5,6 +5,7 @@
       <w>interruptibly</w>
       <w>markable</w>
       <w>uncontended</w>
+      <w>uninterruptibly</w>
       <w>unpark</w>
     </words>
   </dictionary>
