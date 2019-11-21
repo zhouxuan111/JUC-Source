@@ -115,7 +115,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         }
 
         /**
-         * 返回拥有锁的数量
+         * 返回线程拥有锁的数量
          * @return
          */
         final int getHoldCount() {
