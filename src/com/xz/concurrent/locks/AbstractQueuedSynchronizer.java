@@ -365,6 +365,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
         Node predNext = pred.next;
 
+        //将当前节点状态设置成CANCELLED
         node.waitStatus = Node.CANCELLED;
 
         if (node == tail && compareAndSetTail(node, pred)) {

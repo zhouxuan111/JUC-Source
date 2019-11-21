@@ -4,6 +4,7 @@
       <w>cellsbusy</w>
       <w>interruptibly</w>
       <w>markable</w>
+      <w>nonfair</w>
       <w>uncontended</w>
       <w>uninterruptibly</w>
       <w>unpark</w>
