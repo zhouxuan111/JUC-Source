@@ -129,7 +129,7 @@ public class LockSupport {
     }
 
     /**
-     *
+     * 阻塞指定时间
      */
     public static void parkNanos(long nanos) {
         if (nanos > 0) {
