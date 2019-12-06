@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 1.简介：读写锁(一个读锁 一个写锁) 在读操作使用读锁 在写操作使用写锁 当写锁被获取到 后续的读写操作都会被阻塞
- * 2.特点：支持公平锁和非公平锁 可重入锁 锁降价(写锁降低为读锁)
+ * 2.特点：支持公平锁和非公平锁 可重入锁 锁降级(写锁降低为读锁)
  * 3.锁数量：读写采用32位二进制保存锁的数量 高位保存读锁  地位保存写锁 锁的数量最大为65535
  * 4.类结构
  * AbstractQueuedSynchronizer                         Lock
@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
  * *读锁状态的增加：S + (1 << 16)
  * *写锁状态的获取：S & 0x0000FFFF
  * *写锁状态的增加：S + 1
+ * 8.锁降级的过程：拥有写锁，获取读锁，释放写锁
  */
 public class ReentrantReadWriteLock implements ReadWriteLock, java.io.Serializable {
 
