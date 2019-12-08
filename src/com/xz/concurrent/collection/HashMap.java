@@ -23,8 +23,6 @@ import sun.misc.SharedSecrets;
 
 /**
  * 数据结构：数组+链表+红黑树
- * @param <K>
- * @param <V>
  */
 public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Cloneable, Serializable {
 
