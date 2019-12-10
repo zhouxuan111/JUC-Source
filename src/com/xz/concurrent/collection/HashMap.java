@@ -138,7 +138,7 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
 
     /**
      * 散列算法
-     * 将key映射成index的方法 根据Index利用O(n)查找到该key对应的value
+     * 将key映射成index(数组下标)的方法 根据Index利用O(n)查找到该key对应的value
      * 计算key的hashcode方法，为了减少碰撞，将key均匀的分不到数组中
      * 从该函数获取到信息：若key == null 存在数组的第一个位置。table[0]
      */
@@ -233,6 +233,7 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
      * 自定义大小 initialCapacity并不是真正的HashMap集合的大小
      * 只是被用来计算threshold(扩容阈值)
      * this.threshold = tableSizeFor(initialCapacity) 最后定义的容量大小必是2^n
+     * 在构造函数中 没有指定initialCapacity 则不会给threshold赋值 默认为0  若指定initialCapacity，threshold初始化为initialCapacity的最小的2^n
      */
     /**
      * 自定义初始大小 负载因子
@@ -289,14 +290,16 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
         if (s > 0) {
             //table 未初始化
             if (table == null) {
-                //计算是否大于阈值
+                //计算是否大于阈值 +1是补足
                 float ft = ((float) s / loadFactor) + 1.0F;
 
                 int t = ((ft < (float) MAXIMUM_CAPACITY) ? (int) ft : MAXIMUM_CAPACITY);
                 if (t > threshold) {
+                    //返回最接近自定义长度的2^n
                     threshold = tableSizeFor(t);
                 }
             }
+            //HashMap的实际长度>扩容阈值 进行扩容
             else if (s > threshold) {
                 resize();
             }
@@ -341,51 +344,60 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
 
     /**
      * 添加元素
-     * @param hash hash for key
-     * @param key the key
-     * @param value the value to put
-     * @param onlyIfAbsent if true, don't change existing value
-     * @param evict if false, the table is in creation mode.
-     * @return previous value, or null if none
+     * @param onlyIfAbsent true：在key已存在的情况下 保留原值 false：覆盖原值
+     * @param evict 判断当前是否是构造模式 false:构造函数下 true：非构造函数下
+     * table真正的初始化是在resize()中
      */
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent, boolean evict) {
         Node<K, V>[] tab;
         Node<K, V> p;
-        // n = 数组长度
+        // n = 数组长度 i:元素的下标位置
         int n, i;
-        //数组为null或者size = 0 进行初始化
+        //数组为null或者size = 0 调用resize()进行初始化
         if ((tab = table) == null || (n = tab.length) == 0) {
             n = (tab = resize()).length;
         }
+        //key所对应的桶不存在 创建Node节点存放在桶里
         if ((p = tab[ i = (n - 1) & hash ]) == null) {
             tab[ i ] = newNode(hash, key, value, null);
         }
+        //对应的桶存在
         else {
             Node<K, V> e;
             K k;
+            //首节点
+            //判断桶的key和当前key是否相同 相同要满足的两个条件：hash相同，两者 == 或 equals()相等
             if (p.hash == hash && ((k = p.key) == key || (key != null && key.equals(k)))) {
                 e = p;
             }
+            /*-----桶被占用-----*/
+            //桶中是红黑树
             else if (p instanceof HashMap.TreeNode) {
                 e = ((HashMap.TreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
             }
+            //桶中是链表
             else {
                 for (int binCount = 0; ; ++binCount) {
+                    //从尾节点开始
                     if ((e = p.next) == null) {
+                        //在尾部插入新的节点
                         p.next = newNode(hash, key, value, null);
-                        if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
-                        {
+                        //长度>8 将链表转为红黑树
+                        if (binCount >= TREEIFY_THRESHOLD - 1) {
                             treeifyBin(tab, hash);
                         }
                         break;
                     }
+                    //查找到key相同的 直接退出循环
                     if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
                         break;
                     }
                     p = e;
                 }
             }
-            if (e != null) { // existing mapping for key
+
+            //待存储的key已经存在
+            if (e != null) {
                 V oldValue = e.value;
                 if (!onlyIfAbsent || oldValue == null) {
                     e.value = value;
@@ -394,16 +406,19 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
                 return oldValue;
             }
         }
+        //累计操作次数
         ++modCount;
+        //判断是否需要扩容
         if (++size > threshold) {
             resize();
         }
+        //该方法只在LinkHashMap中使用到
         afterNodeInsertion(evict);
         return null;
     }
 
     /**
-     * 扩容
+     * 使用该方法的两种情况
      * table为空：初始化默认大小
      * 扩容：每次扩容2的幂，并且将旧表中的数据移动到新表中，保持在同一索引位置
      */
@@ -416,48 +431,67 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
         int newCap, newThr = 0;
         //1.旧数组长度 > 0
         if (oldCap > 0) {
-            //旧数组长度>最大长度
+            //旧数组长度>最大长度 不再扩容 直接返回
             if (oldCap >= MAXIMUM_CAPACITY) {
                 threshold = Integer.MAX_VALUE;
                 return oldTab;
             }
+            //旧数组的长度扩大两倍 <最大容量 并且旧数组的长度>16
             else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) {
-                newThr = oldThr << 1; // double threshold
+                newThr = oldThr << 1;
             }
         }
-        else if (oldThr > 0) // initial capacity was placed in threshold
-        {
+        //有参构造
+        //若构造函数中指定initialCapacity，则threshold被初始化过
+        else if (oldThr > 0) {
+            //新数组长度 = 旧数组阈值
             newCap = oldThr;
         }
-        else {               // zero initial threshold signifies using defaults
+        //无参构造
+        //没有指定initialCapacity 使用默认值
+        else {
             newCap = DEFAULT_INITIAL_CAPACITY;
             newThr = (int) (DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
         }
+
+        //计算指定initialCapacity情况下 threshold的值
+        //else if (oldThr > 0) {
+        //    newCap = oldThr;
+        //}
         if (newThr == 0) {
             float ft = (float) newCap * loadFactor;
             newThr = (newCap < MAXIMUM_CAPACITY && ft < (float) MAXIMUM_CAPACITY ? (int) ft : Integer.MAX_VALUE);
         }
         threshold = newThr;
+
+        //初始化table数组
         Node<K, V>[] newTab = (Node<K, V>[]) new Node[ newCap ];
         table = newTab;
+        //进行数据转移
         if (oldTab != null) {
             for (int j = 0; j < oldCap; ++j) {
                 Node<K, V> e;
                 if ((e = oldTab[ j ]) != null) {
                     oldTab[ j ] = null;
+                    //存储桶中只有一个元素 直接将其放到新表中的指定位置
                     if (e.next == null) {
                         newTab[ e.hash & (newCap - 1) ] = e;
                     }
+                    //若存储桶中是红黑树 拆分树
                     else if (e instanceof HashMap.TreeNode) {
                         ((HashMap.TreeNode<K, V>) e).split(this, newTab, j, oldCap);
                     }
-                    else { // preserve order
+                    //链表查分成两个链表
+                    else {
+                        //两个链表 lo链表 hi链表
                         Node<K, V> loHead = null, loTail = null;
                         Node<K, V> hiHead = null, hiTail = null;
                         Node<K, V> next;
                         do {
                             next = e.next;
+                            //若(e.hash & oldCap) == 0 插入lo链表，否则 插入hi链表
                             if ((e.hash & oldCap) == 0) {
+                                //插入lo链表
                                 if (loTail == null) {
                                     loHead = e;
                                 }
@@ -467,6 +501,7 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
                                 loTail = e;
                             }
                             else {
+                                //插入hi链表
                                 if (hiTail == null) {
                                     hiHead = e;
                                 }
@@ -477,10 +512,12 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
                             }
                         }
                         while ((e = next) != null);
+                        //lo链表不为空 将lo链表元素存放在新table的j位置
                         if (loTail != null) {
                             loTail.next = null;
                             newTab[ j ] = loHead;
                         }
+                        //hi链表不为空 将hi链表元素存放在新table的[j+oldCap]位置上
                         if (hiTail != null) {
                             hiTail.next = null;
                             newTab[ j + oldCap ] = hiHead;
@@ -1614,9 +1651,11 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
         }
     }
 
-    /* ------------------------------------------------------------ */
+    /* -----------------------------Node相关方法------------------------- */
 
-    // Create a regular (non-tree) node
+    /**
+     * 创建Node节点
+     */
     Node<K, V> newNode(int hash, K key, V value, Node<K, V> next) {
         return new Node<>(hash, key, value, next);
     }
@@ -1673,15 +1712,16 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
     }
 
     /*--------------------------------数据结构 红黑树-------------------------------*/
+
     static final class TreeNode<K, V> extends LinkedHashMap.Entry<K, V> {
 
-        TreeNode<K, V> parent;  // red-black tree links
+        TreeNode<K, V> parent;
 
         TreeNode<K, V> left;
 
         TreeNode<K, V> right;
 
-        TreeNode<K, V> prev;    // needed to unlink next upon deletion
+        TreeNode<K, V> prev;
 
         boolean red;
 
@@ -2048,9 +2088,7 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
         }
 
         /**
-         * Splits nodes in a tree bin into lower and upper tree bins,
-         * or untreeifies if now too small. Called only from resize;
-         * see above discussion about split bits and indices.
+         * 拆分红黑树
          * @param map the map
          * @param tab the table for recording bin heads
          * @param index the index of the table being split
