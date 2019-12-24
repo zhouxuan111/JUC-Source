@@ -1368,18 +1368,30 @@ public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Clone
         }
     }
 
-    /* ---------------------------spliterators迭代器----------------------------- */
+    /* ---------------------------spliterators迭代器 分割迭代器----------------------------- */
 
     static class HashMapSpliterator<K, V> {
 
+        /**
+         * HashMap
+         */
         final HashMap<K, V> map;
 
         Node<K, V> current;          // current node
 
+        /**
+         * 桶索引
+         */
         int index;                  // current index, modified on advance/split
 
+        /**
+         * 当前迭代器遍历上线的桶索引
+         */
         int fence;                  // one past last index
 
+        /**
+         * 需要遍历的个数
+         */
         int est;                    // size estimate
 
         int expectedModCount;       // for comodification checks
